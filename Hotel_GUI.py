@@ -1,9 +1,10 @@
 import tkinter 
 from tkinter import *
 
-#Paleta de colores
+# Color principal de la ventana
 FONDO_PRINCIPAL = "#36393F"
 
+# Clase GUI
 class HotelGUI():
     def __init__(self, hotel):
         self.cochera = hotel # Creo el objeto 
@@ -14,12 +15,12 @@ class HotelGUI():
         self.top.grid_rowconfigure(6, weight=1)   # Espacio abajo
         self.top.grid_columnconfigure(0, weight=1)  # Centrar horizontalmente
 
-        self.top.title("Las Vegas Hotel") # Define el titulo de la ventana
+        self.top.title("Menú pincipal") # Define el titulo de la ventana
 
         self.top.configure(background = FONDO_PRINCIPAL) # Define el color de fondo de la ventana (Antes era #003976)
 
         # Titulo de la Ventana Principal
-        self.titulo = Label(self.top, text="¡Bienvenidos a Las Vegas Hotel!", font=("Broadway", 36, "bold"), bg="#36393F", fg="white")
+        self.titulo = Label(self.top, text="¡Bienvenidos a Mi Hotel en Python!", font=("Broadway", 36, "bold"), bg="#36393F", fg="white")
         self.titulo.grid(row=1, column=0, pady=40)
 
         # Botones del Menu
@@ -45,6 +46,14 @@ class HotelGUI():
 
         self.top.mainloop()
 
+     # Ventana para completar los datos personales de la reserva
+    def ventana_datos_personales(self):
+        self.ventana_datos_personales = tkinter.Toplevel() # Ventana secundaria
+        self.ventana_datos_personales.title("Ingrese sus datos personales")
+        self.ventana_datos_personales.geometry("1000x1000")
+        self.ventana_datos_personales.configure(background = FONDO_PRINCIPAL)
+        self.texto1 = tkinter.Label(self.ventana_datos_personales, text='Cantidad de Personas:', font=("Arial", 20, "bold"))
+
     # Ventana Secundaria para Registrar Reserva
     def ventana_realizar_reserva(self):
         self.ventana_reservar = tkinter.Toplevel() # Ventana secundaria
@@ -67,7 +76,7 @@ class HotelGUI():
         self.entry_cant_personas = tkinter.Entry(self.ventana_reservar)
         self.entry_cant_personas.grid(row=1, column= 1, padx=35, pady=35)
 
-        self.btn_confirmar = Button(self.ventana_reservar, text="Confirmar", font=("Arial", 15, "bold"))
+        self.btn_confirmar = Button(self.ventana_reservar, text="Confirmar", font=("Arial", 15, "bold"), command=self.ventana_datos_personales)
         self.btn_confirmar.grid(row=4, column=1, padx=20, pady=20)
         self.btn_salir = Button(self.ventana_reservar, text="Salir", font=("Arial", 15, "bold"), command=self.ventana_reservar.destroy)
         self.btn_salir.grid(row=4, column=3, padx=20, pady=20)
