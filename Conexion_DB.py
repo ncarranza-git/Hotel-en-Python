@@ -1,5 +1,6 @@
 import pymysql
 import getpass
+import sqlite3
 
 # Conexion con la base de datos 
 def conectar(ip,usuario,puerto):
@@ -124,3 +125,36 @@ def insertar_habitaciones(conexion_db, nombre_tabla, lista_habitaciones):
 
     conexion_db.commit()
     print("Habitaciones sincronizadas con la DB (sin borrar registros).")
+
+def escribir_historial(conexion_db, tabla_reservas, tabla_historial):
+    # Buscar reservas vencidas
+    cursor = conexion_db.cursor()
+    cursor.execute(f"SELECT * FROM {tabla_reservas} WHERE fecha_de_salida <= CURDATE()")
+    reservas = cursor.fetchall()
+
+    # Pasarlas al historial antes de eliminar
+    for r in reservas:
+        sql_hist = f"""
+            INSERT INTO {tabla_historial}
+            (cantidad_personas, nombre_cliente, dni, num_habitacion, tipo_habitacion,
+            fecha_de_ingreso, fecha_de_salida, monto_a_pagar, fecha_eliminacion, motivo_eliminacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURDATE(), %s)
+        """
+        cursor.execute(sql_hist, (
+            r["cantidad_personas"],
+            r["nombre_cliente"],
+            r["dni"],
+            r["num_habitacion"],
+            r["tipo_habitacion"],
+            r["fecha_de_ingreso"],
+            r["fecha_de_salida"],
+            r["monto_a_pagar"],
+            "Eliminación automática por fecha"
+        ))
+    conexion_db.commit()
+
+def mostrar_historial(conexion_db, tabla_historial):
+    conexion_db.row_factory = sqlite3.Row
+    cursor = conexion_db.cursor()
+    cursor.execute(f"SELECT * FROM {tabla_historial} ORDER BY fecha_eliminacion DESC")
+    return [dict(row) for row in cursor.fetchall()]

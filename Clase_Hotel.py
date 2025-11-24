@@ -4,7 +4,9 @@ from datetime import date
 from Clase_Escribir_txt import escribir_reserva, leer_reservas, eliminar_registro, eliminar_aut, mostrar_registros_eliminados, leer_eliminados
 from google import genai
 from getpass import getpass
-from Conexion_DB import escribir_db, eliminar_reserva, eliminacion_aut, mostrar_reservas, insertar_habitaciones
+from Conexion_DB import escribir_db, eliminar_reserva, eliminacion_aut, mostrar_reservas, insertar_habitaciones, escribir_historial, mostrar_historial
+
+
 
 # Clase Hotel 
 class Hotel:
@@ -42,13 +44,21 @@ class Hotel:
             for h in disponibles:
                 print(f"N°{h.numero} - {h.tipo} - ${h.precio}")
         return disponibles
+    
+    def mostrar_todas_habitaciones(self):
+        texto = ""
+        for h in self.habitaciones:
+            estado = "Ocupada" if h.ocupada else "Libre"
+            texto += f"N°{h.numero} - {h.tipo} - ${h.precio} - Estado: {estado}\n"
+        return texto
+    
 
     # Funcion para realizar una reserva de habitacion
-    def reservar_habitacion(self):
+    def reservar_habitacion(self, cantidad_personas, confirmacion, nombre_cliente, dni, dia_ingreso, dia_salida):
         print(f"¡Bienvenido a {self.nombre}!")
 
         # Solicito la cantidad de personas
-        cantidad_personas = int(input("Ingrese la cantidad de personas a hospedar: "))
+        # cantidad_personas = int(input("Ingrese la cantidad de personas a hospedar: "))
 
         # Validacion de habitacion segun la cantidad de personas
         if cantidad_personas == 1:
@@ -71,14 +81,14 @@ class Hotel:
         # Primera habitacion disponible
         hab = disponibles[0]
 
-        confirmacion = input("Desea confirmar la operacion? si / no: ").lower()
-        if confirmacion == "si":
+        # confirmacion = input("Desea confirmar la operacion? si / no: ").lower()
+        if confirmacion == True:
             # Solicito los datos del cliente
-            nombre_cliente = input("Ingrese su nombre y apellido: ").upper()
-            dni = input("Ingrese dni del titular de la reserva: ")
+            # nombre_cliente = input("Ingrese su nombre y apellido: ").upper()
+            # dni = input("Ingrese dni del titular de la reserva: ")
              # Solicito las fechas a reservar
-            dia_ingreso = input("Ingrese la fecha de ingreso al hotel (formato año-mes-día): ")
-            dia_salida = input("Ingrese la fecha de salida del hotel (formato año-mes-día): ")
+            # dia_ingreso = input("Ingrese la fecha de ingreso al hotel (formato año-mes-día): ")
+            # dia_salida = input("Ingrese la fecha de salida del hotel (formato año-mes-día): ")
         
             
             # Trasnsformo los datos de los dias de ingreso y salida
@@ -123,29 +133,49 @@ class Hotel:
                 # Muestro el mensaje con descripcion para confirmar la reserva
                 print(f"Se registró la reserva de una habitacion {hab.tipo} a nombre de {nombre_cliente}, DNI {dni} desde {dia_ingreso} hasta {dia_salida}. El total a pagar es de ${monto_a_pagar} ")
                 return nombre_cliente, dni, hab.tipo, dia_ingreso, dia_salida, hab.precio, monto_a_pagar
-        elif confirmacion == "no":
+        elif confirmacion == False:
             print("Operación cancelada!")
             return
+        
+    def actualizar_estados(self):
+        # Primero, resetear todas las habitaciones a libres
+        for h in self.habitaciones:
+            h.ocupada = False
 
-    # Funcion para mostrar las reservas cargadas en la base de datos y txt
+        # Leer reservas actuales de la DB
+        reservas_actuales = mostrar_reservas(self.conexion, "tabla_reservas")
+
+        for reserva in reservas_actuales:
+            num_hab = reserva['num_habitacion']
+            # Marcar la habitación correspondiente como ocupada
+            for h in self.habitaciones:
+                if h.numero == num_hab:
+                    h.ocupada = True
+                    break
+
+
     def mostrar_reservas(self):
-        mostrar_reservas(self.conexion, "tabla_reservas")
-        reservas_actuales = leer_reservas("Hotel_Registro.txt")
+        reservas = mostrar_reservas(self.conexion, "tabla_reservas")
 
-        if not reservas_actuales:
-            print("No hay reservas registradas")
-            return
+        texto = ""
+        for fila in reservas:
+            texto += (
+                f"Cliente: {fila['nombre_cliente']} | "
+                f"DNI: {fila['dni']} | "
+                f"Personas: {fila['cantidad_personas']} | "
+                f"Habitacion: {fila['num_habitacion']} ({fila['tipo_habitacion']}) | "
+                f"Ingreso: {fila['fecha_de_ingreso']} | "
+                f"Salida: {fila['fecha_de_salida']} | "
+                f"Monto Total: ${fila['monto_a_pagar']}\n"
+            )
 
-        for i, reserva in enumerate(reservas_actuales, start=1):
-            if len(reserva) >= 6:
-                nombre, dni, tipo, ingreso, salida, precio = reserva
-                print(f"{i}. {nombre} (DNI {dni}) - {tipo} | Ingreso: {ingreso} | Salida: {salida} | Precio: ${precio}")
-                return ingreso, salida
+        return texto if texto else "No hay reservas registradas."
+
     
     
     # Funcion para cancelar reserva
-    def eliminar_reserva(self):
-        dni_buscado = input("Ingrese el dni de la reserva a cancelar: ")
+    def eliminar_reserva(self, dni_buscado):
+        # dni_buscado = input("Ingrese el dni de la reserva a cancelar: ")
         eliminar_reserva(self.conexion, "tabla_reservas", dni_buscado)
         eliminar_registro("Hotel_Registro.txt", dni_buscado)
     
@@ -173,9 +203,14 @@ class Hotel:
             else:
                 registros_actualizados.append(reserva)
 
-        # Sobrescribo el archivo de reservas con las que quedan activas
-        eliminar_aut("Hotel_Registro.txt", registros_actualizados)
+        # Escribo la DB historial
+        escribir_historial(self.conexion, "tabla_reservas", "tabla_historial")
+
+        # Elimino el registro del SQL
         eliminacion_aut(self.conexion, "tabla_reservas")
+
+        # Actualizo el txt
+        eliminar_aut("Hotel_Registro.txt", registros_actualizados)
 
         # Registro las eliminadas en un historial
         if eliminados:
@@ -185,29 +220,40 @@ class Hotel:
         else:
             print("No había reservas con fecha de salida igual o anterior al día de hoy.")
 
-    # Funcion para mostrar los registros eliminados del txt principal
+    # Funcion para mostrar los registros eliminados del txt y base de datos principal
     def mostrar_eliminados(self):
-        eliminados = leer_eliminados("Hotel_Registros_Eliminados.txt")
+        # Leer registros eliminados desde TXT y SQL
+        historial_sql = mostrar_historial(self.conexion, "tabla_historial")
 
-        if not eliminados:
-            print("No hay reservas registradas")
-            return
+        texto = ""
+    
+        if historial_sql:
+            for r in historial_sql:
+                texto += (
+                    f"Cliente: {r['nombre_cliente']} - DNI: {r['dni']}\n"
+                    f"Habitación: {r['num_habitacion']} ({r['tipo_habitacion']})\n"
+                    f"Ingreso: {r['fecha_de_ingreso']}  |  Salida: {r['fecha_de_salida']}\n"
+                    f"Monto: ${r['monto_a_pagar']}\n"
+                    f"Eliminado el: {r['fecha_eliminacion']}\n"
+                    f"Motivo: {r['motivo_eliminacion']}\n"
+                    f"{'-'*70}\n\n"
+                )
+        else:
+            texto += "No hay registros en el historial de SQL.\n\n"
 
-        for i, reserva in enumerate(eliminados, start=1):
-            if len(reserva) >= 6:
-                nombre, dni, tipo, ingreso, salida, precio = reserva
-                print(f"{i}. {nombre} (DNI {dni}) - {tipo} | Ingreso: {ingreso} | Salida: {salida} | Precio: ${precio}")
-        return eliminados
+        return texto
+
 
 
     # Funcion de API GEMINI
-    def api_gemini(self):
+    def api_gemini(self, pregunta):
 
         # Crea el cliente
-        client = genai.Client(api_key=getpass("Ingrese API key de Gemini: "))
+        api_key = "AIzaSyBPY2AZbZTPcoV1LS-3h8UxNVcrHJNw5KE"
+        client = genai.Client(api_key=api_key)
 
         # Pregunta al usuario
-        pregunta = input("Ingrese su pregunta: ")
+        # pregunta = input("Ingrese su pregunta: ")
 
         # Usar el modelo (acá model es un OBJETO, no un string)
         response = client.models.generate_content(
@@ -216,6 +262,7 @@ class Hotel:
         )
 
         # Muestra la respuesta
-        print("\n Respuesta:")
-        print(response.text)
+        #print("\n Respuesta:")
+        #print(response.text)
+        return response.text
 
