@@ -249,7 +249,7 @@ class Hotel:
     def api_gemini(self, pregunta):
 
         # Crea el cliente
-        api_key = "AIzaSyBPY2AZbZTPcoV1LS-3h8UxNVcrHJNw5KE"
+        api_key = " "
         client = genai.Client(api_key=api_key)
 
         # Pregunta al usuario
